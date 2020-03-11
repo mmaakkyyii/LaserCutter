@@ -62,6 +62,14 @@ void Error_Handler(void);
 #define SM1dir_GPIO_Port GPIOA
 #define SM1pulse_Pin GPIO_PIN_1
 #define SM1pulse_GPIO_Port GPIOA
+#define SM2dir_Pin GPIO_PIN_2
+#define SM2dir_GPIO_Port GPIOA
+#define SM2pulse_Pin GPIO_PIN_3
+#define SM2pulse_GPIO_Port GPIOA
+#define SM3dir_Pin GPIO_PIN_4
+#define SM3dir_GPIO_Port GPIOA
+#define SM3pulse_Pin GPIO_PIN_5
+#define SM3pulse_GPIO_Port GPIOA
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
