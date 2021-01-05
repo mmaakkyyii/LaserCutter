@@ -15,7 +15,7 @@ public:
 	LCD(){};
 	void init();
 	void write(uint8_t cmd,uint8_t pos);
-	void print(char *p,int length);
+	void print(char *p,int length,int col);
 
 private:
 	void send(uint8_t cmd);

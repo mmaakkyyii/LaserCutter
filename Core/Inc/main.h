@@ -70,6 +70,12 @@ void Error_Handler(void);
 #define SM3dir_GPIO_Port GPIOA
 #define SM3pulse_Pin GPIO_PIN_5
 #define SM3pulse_GPIO_Port GPIOA
+#define IN1_Pin GPIO_PIN_8
+#define IN1_GPIO_Port GPIOA
+#define IN2_Pin GPIO_PIN_11
+#define IN2_GPIO_Port GPIOA
+#define IN3_Pin GPIO_PIN_12
+#define IN3_GPIO_Port GPIOA
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
