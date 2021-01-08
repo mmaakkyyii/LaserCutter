@@ -6,6 +6,9 @@
  */
 #include "LCD.h"
 #include "i2c.h"
+#include "stdarg.h"
+#include "stdio.h"
+
 uint8_t data[2];
 
 
@@ -67,5 +70,16 @@ void LCD::send(uint8_t cmd){
 	//HAL_I2C_Master_Transmit_DMA(&hi2c1,LCD_addr,data,2);
 }
 
+void LCD::print_lcd(int col,const char *format, ...){
+	uint8_t buffer[8];
+	va_list args;
+	va_start(args,format);
+
+	int n=vsprintf((char*)buffer,format,args);
+	print((char *)buffer,n,col);
+
+	va_end(args);
+
+}
 
 
