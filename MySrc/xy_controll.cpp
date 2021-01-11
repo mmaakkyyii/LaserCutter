@@ -2,60 +2,118 @@
 #include "math.h"
 #include "debug_print.h"
 
-XYController::XYController(SteppingMotor Mx1,SteppingMotor My1,SteppingMotor My2,int _y_dir):
+XYController::XYController(SteppingMotor Mx1,SteppingMotor My1,SteppingMotor My2,int _y_dir,float _period_controller_ms):
 	motor_x(Mx1),
 	motor_y1(My1),
 	motor_y2(My2),
 	y_dir(_y_dir),
-	x_pos(0),y_pos(0),
-	x_pos_init(0),y_pos_init(0){
+	pos_x_current(0),pos_y_current(0),
+	pos_x_init(0)   ,pos_y_init(0),
+	pos_x_target(0) ,pos_y_target(0),
+	period_controller_ms(_period_controller_ms),
+	required_time_ms(0),elapsed_time_ms(0),
+	v_x(0),v_y(0),
+	cmd(Gcord::non){
+
 }
 
 void XYController::SetGcode(char* p, float length){
 
 }
-void XYController::SetLine(float x,float y,float v){//[mm] [mm] [mm/s]
-	float l=sqrtf(x*x+y*y);
-	float t=l/v; //[s]
-	v_x=x/t;//[mm/s]
-	v_y=y/t;//[mm/s]
+void XYController::CalPath(){
+	switch(cmd){
+	case Gcord::G01:
+		pos_x_target=v_x*elapsed_time_ms;
+		pos_y_target=v_y*elapsed_time_ms;
+		break;
+	case Gcord::G02:
+		break;
+	case Gcord::G03:
+		break;
+	default:
+		break;
 
-	timer_ms=(int)(t*1000);
-	counter_ms=0; //reset timer
-	x_pos_init=motor_x.get_pos();
-	y_pos_init=motor_y1.get_pos();
+	}
+}
+void XYController::SetLine(float x,float y,float v){//[mm] [mm] [mm/s]
+	elapsed_time_ms=0; //reset timer
+	pos_x_target=x;
+	pos_y_target=y;
+	pos_x_init=motor_x.get_pos();
+	pos_y_init=motor_y1.get_pos();
+	cmd=Gcord::G01;
+
+    float dx=pos_x_target;//[mm]
+    float dy=pos_y_target;//[mm]
+    float l=sqrtf(dx*dx+dy*dy); //[mm]
+    if(v!=0 or l!=0){
+        float required_time_s=l/v; //[s]
+        v_x=dx/required_time_s; //[mm/s]
+        v_y=dy/required_time_s; //[mm/s]
+        required_time_ms=required_time_s*1000.0; //[ms]
+    }else{
+    	required_time_ms=0;
+        v_x=0;
+        v_y=0;
+    }
+
 
 }
+
+void XYController::SetArc(float x,float y,float r,float v,int dir){//[mm] [mm] [mm/s] [cw(1) or ccw(-1)]
+}
+
+void XYController::Update_target(){
+	if(cmd==Gcord::G01){
+		pos_x_current=motor_x.get_pos() -pos_x_init;
+		pos_y_current=motor_y1.get_pos()-pos_y_init;
+		pos_x_target=v_x*elapsed_time_ms*0.001;
+		pos_y_target=v_y*elapsed_time_ms*0.001;
+	}
+
+}
+
 void XYController::Update(){
-	x_pos=motor_x.get_pos()-x_pos_init;
-	y_pos=motor_y1.get_pos()-y_pos_init;
 
 
-	if(counter_ms>timer_ms){
+	if(elapsed_time_ms>required_time_ms){
+		cmd=Gcord::non;
 		return;
 	}
-	if(v_x>0){
-		if(v_x*counter_ms*0.001>x_pos){
-			motor_x.step(1);
+	int step_num=100;
+	for(int n=0;n<step_num;n++){
+		Update_target();
+
+		if(v_x>0){
+			if(pos_x_target>pos_x_current){
+				motor_x.step(1);
+			}else{
+
+			}
+		}else if(v_x<0){
+			if(pos_x_target<pos_x_current){
+				motor_x.step(-1);
+			}else{
+
+			}
 		}
-	}else{
-		if(v_x*counter_ms*0.001<x_pos){
-			motor_x.step(-1);
+
+		if(v_y>0){
+			if(pos_y_target>pos_y_current){
+				motor_y1.step(1);
+				motor_y2.step(y_dir*1);
+			}else{
+
+			}
+		}else if(v_y<0){
+			if(pos_y_target<pos_y_current){
+				motor_y1.step(-1);
+				motor_y2.step(-y_dir*1);
+			}else{
+
+			}
 		}
 	}
 
-	if(v_y>0){
-		if(v_y*counter_ms*0.001>y_pos){
-			motor_y1.step(1);
-			motor_y2.step(y_dir);
-		}
-	}else{
-		if(v_y*counter_ms*0.001<y_pos){
-			motor_y1.step(-1);
-			motor_y2.step(-y_dir);
-		}
-	}
-
-
-	counter_ms++;
+	elapsed_time_ms+=period_controller_ms;
 }

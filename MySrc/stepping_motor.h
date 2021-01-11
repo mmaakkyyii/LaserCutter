@@ -16,20 +16,21 @@ private:
 	uint16_t dir_pin;
 	GPIO_TypeDef* pulse_port;
 	uint16_t pulse_pin;
-	const float deg_par_step=1.8; //[deg/step]
+	const float deg_par_step=1.8/16.0; //[deg/step] 1/16
 	const float R = 7; //[mm] //7
-	float pos=0;
-	int step_num=0;
-	int delay_time=2;
+	float pos;
+	int step_num;
+	const int delay_time=2;
+	void pulse(int dir);
 
 public:
 	SteppingMotor(GPIO_TypeDef* _dir_port, uint16_t _dir_pin,GPIO_TypeDef* _pulse_port, uint16_t _pulse_pin);
-	void pulse(int dir);
 	void step(int dir);
 	void move_mm(int length);
 	void move(int num);
 	void init(){pos=0;}
 	float get_pos(){return pos;}
+	int get_step_num(){return step_num;}
 
 
 };

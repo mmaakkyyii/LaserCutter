@@ -21,7 +21,7 @@ SteppingMotor motor1(SM1dir_GPIO_Port,SM1dir_Pin,SM1pulse_GPIO_Port,SM1pulse_Pin
 SteppingMotor motor2(SM2dir_GPIO_Port,SM2dir_Pin,SM2pulse_GPIO_Port,SM2pulse_Pin);
 SteppingMotor motor3(SM3dir_GPIO_Port,SM3dir_Pin,SM3pulse_GPIO_Port,SM3pulse_Pin);
 
-XYController xy_controller(motor3,motor1,motor2,-1);
+XYController xy_controller(motor3,motor1,motor2,-1,1);
 
 
 void PWM(int duty){//0~99
@@ -43,30 +43,28 @@ void PWM(int duty){//0~99
 */
 }
 
-const int uart_data_num=32;
-uint8_t UART1_Data[uart_data_num];
+const int cmd_data_num=32;
+int cmd_addr=0;
+bool cmd_received=false;
+uint8_t cmd_data[cmd_data_num];
+uint8_t UART1_Data[1];
+
+void clear_buff(){
+	for(int i=0;i<cmd_data_num;i++)cmd_data[i]=' ';
+}
+
 
 void Init(){
 	lcd.init();
-	char a[8];
-	int n = 0;
-	n=sprintf(a,"Hello!");
-	lcd.print(a, n,0);
-	HAL_Delay(200);
-	n=sprintf(a,"world!");
-	lcd.print(a, n,1);
-	HAL_Delay(200);
-	n=sprintf(a,"moapachi");
-	lcd.print(a, n,0);
-	HAL_Delay(200);
-    HAL_UART_Receive_IT(&huart1, (uint8_t*)UART1_Data, uart_data_num);
+	lcd.print_lcd(0, "makyi ");
+	lcd.print_lcd(1, "world!");
+	//HAL_Delay(200);
+    HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_Data, 1);
 	HAL_TIM_Base_Start_IT(&htim16);
 	HAL_TIM_Base_Start_IT(&htim17);
 
 }
 
-int x=0;
-int t=0;
 void Loop(){
 	if(xy_controller.isBusy()){
 		PWM(500);
@@ -113,45 +111,54 @@ void Interrupt_1ms(){
 
 void Interrupt_100ms(){
 	if(HAL_GPIO_ReadPin(IN1_GPIO_Port, IN1_Pin)==GPIO_PinState::GPIO_PIN_RESET){
-		if(!xy_controller.isBusy()){
-			xy_controller.SetLine(-10, 0, 5);
+		if(HAL_GPIO_ReadPin(IN3_GPIO_Port, IN3_Pin)==GPIO_PinState::GPIO_PIN_RESET){
+			xy_controller.SetLine(-10, 0, 100);
+		}else{
+			xy_controller.SetLine(10, 0, 100);
 		}
 	}
 	if(HAL_GPIO_ReadPin(IN2_GPIO_Port, IN2_Pin)==GPIO_PinState::GPIO_PIN_RESET){
-		if(!xy_controller.isBusy()){
-			xy_controller.SetLine(0, -10, 5);
+		if(HAL_GPIO_ReadPin(IN3_GPIO_Port, IN3_Pin)==GPIO_PinState::GPIO_PIN_RESET){
+			xy_controller.SetLine(0, -10, 100);
+		}else{
+			xy_controller.SetLine(0, 10, 100);
 		}
 	}
-	if(HAL_GPIO_ReadPin(IN3_GPIO_Port, IN3_Pin)==GPIO_PinState::GPIO_PIN_RESET){
-		if(!xy_controller.isBusy()){
-			xy_controller.SetLine(10, 10, 5);
-		}
+
+	if(cmd_received){
+	//if(0){
+
+	    char *end1,*end2,*end3,*end4;
+	    int num1=strtol((char*)cmd_data,&end1,10);
+	    int num2=strtol(end1,&end2,10);
+	    int num3=strtol(end2,&end3,10);
+	    int num4=strtol(end3,&end4,10);
+	    int x=num2;
+	    int y=num3;
+	    int v=num4;
+		print_uart("x=%dy=%d\r\n",x,y);
+		char a[8];
+		lcd.print_lcd(0, "x=%d",motor3.get_step_num());
+		lcd.print_lcd(1, "y=%d",motor1.get_step_num());
+
+		xy_controller.SetLine(x, y, v);
+		clear_buff();
+		cmd_received=false;
+
 	}
-	char a[8];
-	int n = sprintf(a,"t=%6d",t);
-	//lcd.print(a, 8,0);
-	//print_uart("t=%d\r\n",t);
-	t++;
+
+
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
-    HAL_UART_Receive_IT(&huart1, (uint8_t*)UART1_Data, uart_data_num);
-    char *end1,*end2,*end3,*end4;
-    int num1=strtol((char*)UART1_Data,&end1,10);
-    int num2=strtol(end1,&end2,10);
-    int num3=strtol(end2,&end3,10);
-    int num4=strtol(end3,&end4,10);
-    int x=num2;
-    int y=num3;
-    int v=num4;
-	print_uart("x=%d0y=%d0\r\n",x,y);
-	char a[8];
-	int n =0;
-	n= sprintf(a,"x=%d   ",x);
-	lcd.print(a, 8,0);
-	n= sprintf(a,"y=%d   ",y);
-	lcd.print(a, 8,1);
-	xy_controller.SetLine(x, y, v);
-}
+    HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_Data, 1);
+    if(UART1_Data[0]!=';'){
+    	cmd_data[cmd_addr]=UART1_Data[0];
+    	cmd_addr++;
+    }else{
+    	cmd_addr=0;
+    	cmd_received=true;
+    }
+ }
 
 
