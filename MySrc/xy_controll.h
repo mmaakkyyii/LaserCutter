@@ -3,7 +3,7 @@
 
 #include "stepping_motor.h"
 
-enum class Gcord{
+enum class Gcode{
 	non,
 	G00,
 	G01,
@@ -27,7 +27,21 @@ private:
 	float elapsed_time_ms; 		//[ms]
 	float v_x; 					//[mm/s]
 	float v_y; 					//[mm/s]
-	Gcord cmd;
+
+	float sinA;					//
+	float cosA;					//
+	float sinB;					//
+	float cosB;					//
+	float sinA_B;				//
+	float cosA_B;				//
+	float pos_x_center;			//
+	float pos_y_center;			//
+	float radius;				//[mm]
+	float theta;				//[rad/ms]
+	float omega;				//[rad/ms]
+
+	Gcode cmd;
+	const float pi=3.141592;
 
 public:
 	XYController(SteppingMotor Mx1,SteppingMotor My1,SteppingMotor My2,int _y_dir,float _period_controller_ms);
@@ -37,6 +51,8 @@ public:
 	void Update_target();
 	void Update();
 	void CalPath();
+	float GetPosX(){return motor_x.get_pos();}
+	float GetPosY(){return motor_y1.get_pos();}
 	bool isBusy(){return (elapsed_time_ms<required_time_ms);};//return true when stop
 };
 

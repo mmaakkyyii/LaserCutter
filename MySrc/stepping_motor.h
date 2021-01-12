@@ -16,8 +16,8 @@ private:
 	uint16_t dir_pin;
 	GPIO_TypeDef* pulse_port;
 	uint16_t pulse_pin;
-	const float deg_par_step=1.8/16.0; //[deg/step] 1/16
-	const float R = 7; //[mm] //7
+	const float deg_par_step=1.8/16.0/2.0; //[deg/step] 1/16
+	const float R = 6.3; //[mm] //7
 	float pos;
 	int step_num;
 	const int delay_time=2;
