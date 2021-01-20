@@ -30,6 +30,7 @@
 
 /* USER CODE END Includes */
 
+extern TIM_HandleTypeDef htim3;
 extern TIM_HandleTypeDef htim16;
 extern TIM_HandleTypeDef htim17;
 
@@ -37,9 +38,12 @@ extern TIM_HandleTypeDef htim17;
 
 /* USER CODE END Private defines */
 
+void MX_TIM3_Init(void);
 void MX_TIM16_Init(void);
 void MX_TIM17_Init(void);
-
+                        
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+                    
 /* USER CODE BEGIN Prototypes */
 
 /* USER CODE END Prototypes */

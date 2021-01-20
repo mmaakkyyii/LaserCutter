@@ -53,7 +53,9 @@ public:
 	void CalPath();
 	float GetPosX(){return motor_x.get_pos();}
 	float GetPosY(){return motor_y1.get_pos();}
-	bool isBusy(){return (elapsed_time_ms<required_time_ms);};//return true when stop
+	bool isBusy(){
+		if(elapsed_time_ms<=required_time_ms)return true;
+		else return false;};//return true when stop
 };
 
 

@@ -15,7 +15,7 @@
 #include "string.h"
 #include "debug_print.h"
 #include "usart.h"
-
+#include "cmd_buff.h"
 
 LCD lcd;
 SteppingMotor motor1(SM1dir_GPIO_Port,SM1dir_Pin,SM1pulse_GPIO_Port,SM1pulse_Pin);
@@ -28,38 +28,31 @@ XYController xy_controller(motor3,motor1,motor2,-1,1);
 void PWM(int duty){//0~99
 	if(duty<0)duty=0;
 	else if(duty>999)duty=999;
-	if(duty==0)HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PinState::GPIO_PIN_RESET);
-	else HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PinState::GPIO_PIN_SET);
-
-/*
+//	if(duty==0)HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PinState::GPIO_PIN_RESET);
+//	else HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PinState::GPIO_PIN_SET);
+//*
+	//TIM3 ch2
+	//Prescaler 35
+	//couonter period 999
 	TIM_OC_InitTypeDef sConfigOC;
 
 	sConfigOC.OCMode = TIM_OCMODE_PWM1;
 	sConfigOC.Pulse = duty;
-	sConfigOC.OCPolarity = TIM_OCPOLAR	ITY_HIGH;
+	sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
 	sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
 
 	HAL_TIM_PWM_ConfigChannel(&htim3,&sConfigOC,TIM_CHANNEL_2);
 	HAL_TIM_PWM_Start(&htim3,TIM_CHANNEL_2);
-*/
+//*/
 }
 
-const int cmd_data_num=32;
-int cmd_addr=0;
-bool cmd_received=false;
-bool cmd_receiving=false;
-bool cmd_next_empty=true;
-uint8_t cmd_data[cmd_data_num];
-uint8_t next_cmd_data[cmd_data_num];
+
 uint8_t UART1_Data[1];
 
-void clear_buff(){
-	for(int i=0;i<cmd_data_num;i++)cmd_data[i]=' ';
-}
-void clear_next_buff(){
-	for(int i=0;i<cmd_data_num;i++)next_cmd_data[i]=' ';
-}
+CmdBuffer cmd_buffer;
 
+int laser_power=0;
+int laser_power_setting=0;
 
 void Init(){
 	lcd.init();
@@ -73,10 +66,8 @@ void Init(){
 }
 
 void Loop(){
-	if(xy_controller.isBusy()){
-		PWM(500);
-	}else{
-		PWM(0);
+	if(!xy_controller.isBusy()){
+		PWM(1);
 	}
 
 /*
@@ -111,15 +102,68 @@ void Loop(){
 */
 }
 
+
 void Interrupt_1ms(){
 	xy_controller.Update();
+
+	char cmd_data[32];
+	if(!xy_controller.isBusy()){
+		if(cmd_buffer.GetCmd(cmd_data)){
+			int code;
+			switch(cmd_data[0]){
+			case 'G':
+				sscanf((char*)cmd_data,"G%d%s",&code,cmd_data);
+				float x,y,r,v;
+				switch(code){
+				case 0:
+					break;
+				case 1:
+					sscanf((char*)cmd_data,"X%f%s",&x,cmd_data);
+					sscanf((char*)cmd_data,"Y%f%s",&y,cmd_data);
+					sscanf((char*)cmd_data,"F%f%s",&v,cmd_data);
+					xy_controller.SetLine(x, y, v);
+					PWM(laser_power);
+
+					break;
+				case 2:
+					sscanf((char*)cmd_data,"X%f%s",&x,cmd_data);
+					sscanf((char*)cmd_data,"Y%f%s",&y,cmd_data);
+					sscanf((char*)cmd_data,"R%f%s",&r,cmd_data);
+					sscanf((char*)cmd_data,"F%f%s",&v,cmd_data);
+					xy_controller.SetArc(x, y, r, v, 1);
+					PWM(laser_power);
+					break;
+				case 3:
+					sscanf((char*)cmd_data,"X%f%s",&x,cmd_data);
+					sscanf((char*)cmd_data,"Y%f%s",&y,cmd_data);
+					sscanf((char*)cmd_data,"R%f%s",&r,cmd_data);
+					sscanf((char*)cmd_data,"F%f%s",&v,cmd_data);
+					xy_controller.SetArc(x, y, r, v, -1);
+					PWM(laser_power);
+					break;
+				}
+			break;
+			case 'M':
+				sscanf((char*)cmd_data,"M%d%s",&code,cmd_data);
+				switch(code){
+				case 3:
+					laser_power=laser_power_setting;
+					break;
+				case 5:
+					laser_power=0;
+					break;
+				}
+
+			case 'S':
+				sscanf((char*)cmd_data,"S%d%s",&laser_power_setting,cmd_data);
+			}
+		}
+	}
+
 }
 
 
 void Interrupt_100ms(){
-	if(!xy_controller.isBusy() && cmd_next_empty && !cmd_receiving){
-		print_uart("o");
-	}
 //	if(!xy_controller.isBusy()){
 //		if(!cmd_next_empty){
 //			memcpy(cmd_data,next_cmd_data,cmd_data_num);
@@ -144,40 +188,8 @@ void Interrupt_100ms(){
 		}
 	}
 
-	if(cmd_received){
-		int code;
-		sscanf((char*)cmd_data,"G%d%s",&code,cmd_data);
-		float x,y,r,v;
-		switch(code){
-		case 0:
-			break;
-		case 1:
-			sscanf((char*)cmd_data,"X%f%s",&x,cmd_data);
-			sscanf((char*)cmd_data,"Y%f%s",&y,cmd_data);
-			sscanf((char*)cmd_data,"F%f%s",&v,cmd_data);
-			xy_controller.SetLine(x, y, v);
-			break;
-		case 2:
-			sscanf((char*)cmd_data,"X%f%s",&x,cmd_data);
-			sscanf((char*)cmd_data,"Y%f%s",&y,cmd_data);
-			sscanf((char*)cmd_data,"R%f%s",&r,cmd_data);
-			sscanf((char*)cmd_data,"F%f%s",&v,cmd_data);
-			xy_controller.SetArc(x, y, r, v, 1);
-			break;
-		case 3:
-			sscanf((char*)cmd_data,"X%f%s",&x,cmd_data);
-			sscanf((char*)cmd_data,"Y%f%s",&y,cmd_data);
-			sscanf((char*)cmd_data,"R%f%s",&r,cmd_data);
-			sscanf((char*)cmd_data,"F%f%s",&v,cmd_data);
-			xy_controller.SetArc(x, y, r, v, -1);
-			break;
-		}
-		cmd_next_empty=true;
-		cmd_received=false;
-		//clear_buff();
-		//lcd.print_lcd(0, "x=%4d",x);
-		//lcd.print_lcd(1, "y=%4d",y);
-
+	if(cmd_buffer.CanReceive()){
+		print_uart("o");
 	}
 
 	lcd.print_lcd(0, "x=%4d",(int)xy_controller.GetPosX());
@@ -186,32 +198,30 @@ void Interrupt_100ms(){
 
 }
 
-char sum=0;
+uint8_t sum=0;
 bool check_sum=false;
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
     HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_Data, 1);
-    cmd_receiving=true;
     if(check_sum){
     	check_sum=false;
     	if(sum==UART1_Data[0]){
     		sum=0;
-        	cmd_addr=0;
-        	cmd_receiving=false;
-        	cmd_received=true;
-        	lcd.print_lcd(0, "       o");
-    		print_uart("c");
+    		cmd_buffer.SetCmd();
+    		cmd_buffer.ClearReceivingBuff();
+
+    		//print_uart("c");
     	}else{
     		sum=0;
-        	cmd_addr=0;
     		lcd.print_lcd(0, "       x");
     		print_uart("x");
+    		cmd_buffer.ClearReceivingBuff();
     	}
+
     }else if(UART1_Data[0]!=';'){
-    	cmd_data[cmd_addr]=UART1_Data[0];
+    	cmd_buffer.SetChar(UART1_Data[0]);
     	sum+=UART1_Data[0];
-    	cmd_addr++;
     }else{
-    	cmd_data[cmd_addr]=UART1_Data[0];
+    	cmd_buffer.SetChar(UART1_Data[0]);
     	sum+=UART1_Data[0];
     	check_sum=true;
     }

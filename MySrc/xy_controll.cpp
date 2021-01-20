@@ -147,11 +147,11 @@ void XYController::Update_target(){
 void XYController::Update(){
 
 
-	if(elapsed_time_ms>required_time_ms){
+	if(!isBusy()){
 		cmd=Gcode::non;
 		return;
 	}
-	int step_num=100;
+	int step_num=200;
 	for(int n=0;n<step_num;n++){
 		Update_target();
 
